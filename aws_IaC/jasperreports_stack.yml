@@ -15,7 +15,7 @@ Parameters:
     Default: jasperreports-templates
   LambdaPackagedFile:
     Type: String
-    Default: jasperreports-1.0.0.jar
+    Default: jasperreports-1.0.1.jar
   ProductName:
     Type: String
     Default: JasperReports
@@ -51,7 +51,7 @@ Resources:
     Properties:
       VpcId: !Ref jasperReportsVpc
       CidrBlock: 10.85.0.0/23
-      AvailabilityZone: eu-west-1a
+      AvailabilityZone: eu-south-1a
       Tags:
         - Key: Name
           Value: jasperreports-priv-subnet
@@ -63,7 +63,7 @@ Resources:
     Properties:
       VpcId: !Ref jasperReportsVpc
       CidrBlock: 10.85.4.0/23
-      AvailabilityZone: eu-west-1a
+      AvailabilityZone: eu-south-1a
       Tags:
         - Key: Name
           Value: jasperreports-public-subnet
