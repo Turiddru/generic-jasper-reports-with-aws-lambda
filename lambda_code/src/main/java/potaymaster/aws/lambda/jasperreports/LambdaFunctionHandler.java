@@ -20,6 +20,7 @@ public class LambdaFunctionHandler implements RequestStreamHandler
 {
 	LambdaLogger logger;
 	String template;
+	String ext;
 	JSONObject postBody;
 
 	public void handleRequest(InputStream inputStream, OutputStream outputStream, Context context) throws IOException {
@@ -30,16 +31,20 @@ public class LambdaFunctionHandler implements RequestStreamHandler
 			
 			AmazonS3Consumer s3Consumer = new AmazonS3Consumer(this.logger);
 			s3Consumer.retrieveTemplateFromS3(this.template);
-							
-			ReportGenerator reportGenerator = new ReportGenerator(this.logger);
+
+			ReportGenerator reportGenerator = new ReportGenerator(this.logger, this.ext);
 			String encodedReport = reportGenerator.generateBase64EncodedReport(this.postBody);
 			
 			buildSuccessfulResponse(encodedReport, responseJson);
 		}
 		catch (ParseException e) {
+			e.printStackTrace();
+			logger.log("Parse error when handling request." + e.getMessage());
 			this.buildErrorResponse(e.getMessage(), 400, responseJson);
 		}
 		catch (Exception e) {
+			e.printStackTrace();
+			logger.log("Error when handling request." + e.getMessage());
 			this.buildErrorResponse(e.getMessage(), 500, responseJson);
 		}
 		OutputStreamWriter writer = new OutputStreamWriter(outputStream, "UTF-8");
@@ -51,7 +56,8 @@ public class LambdaFunctionHandler implements RequestStreamHandler
 		JSONParser parser = new JSONParser();
 		BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
 		JSONObject queryParameters = null;
-		this.template = "default";
+		this.template = "template";
+		this.ext = "pdf";
 		this.postBody = null;
 		try {
 			JSONObject event = (JSONObject) parser.parse((Reader) reader);
@@ -62,6 +68,10 @@ public class LambdaFunctionHandler implements RequestStreamHandler
 				queryParameters = (JSONObject)event.get("queryStringParameters");
 				if (queryParameters.get((Object)"template") != null) {
 					this.template = (String)queryParameters.get((Object)"template");
+				}
+				if (queryParameters.get((Object)"export") != null) {
+					String ext = (String)queryParameters.get((Object)"export");
+					this.ext = ext.equals("xls") || ext.equals("xlsx") ? "xls" : "pdf";
 				}
 			}
 			if (!this.template.contains(".jrxml")){
@@ -80,9 +90,7 @@ public class LambdaFunctionHandler implements RequestStreamHandler
 	@SuppressWarnings("unchecked")
 	public void buildSuccessfulResponse(String encodedReport, JSONObject responseJson) {
 		JSONObject headerJson = new JSONObject();
-		headerJson.put("Content-Type", "application/pdf");
-		headerJson.put("Accept", "application/pdf");
-		headerJson.put("Content-disposition", "attachment; filename=file.pdf");
+		this.fillResponseHeaders(headerJson);
 		responseJson.put("body", encodedReport);
 		responseJson.put("statusCode", 200);
 		responseJson.put("isBase64Encoded", true);
@@ -93,5 +101,17 @@ public class LambdaFunctionHandler implements RequestStreamHandler
 	public void buildErrorResponse(String body, int statusCode, JSONObject responseJson) {
 		responseJson.put("body", body);
 		responseJson.put("statusCode", statusCode);
+	}
+
+	private void fillResponseHeaders(JSONObject headerJson){
+		if(this.ext.equals("pdf")){
+			headerJson.put("Content-Type", "application/pdf");
+			headerJson.put("Accept", "application/pdf");
+			headerJson.put("Content-disposition", "attachment; filename=file.pdf");
+		}else{
+			headerJson.put("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+			headerJson.put("Accept", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+			headerJson.put("Content-disposition", "attachment; filename=file.xls");
+		}
 	}
 }
