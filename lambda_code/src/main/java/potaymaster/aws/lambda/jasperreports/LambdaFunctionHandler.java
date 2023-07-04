@@ -61,9 +61,7 @@ public class LambdaFunctionHandler implements RequestStreamHandler
 		this.postBody = null;
 		try {
 			JSONObject event = (JSONObject) parser.parse((Reader) reader);
-			if (event.get("body") != null) {
-				this.postBody = (JSONObject)parser.parse((String)event.get("body"));
-			}
+
 			if (event.get("queryStringParameters") != null) {
 				queryParameters = (JSONObject)event.get("queryStringParameters");
 				if (queryParameters.get((Object)"template") != null) {
@@ -71,9 +69,21 @@ public class LambdaFunctionHandler implements RequestStreamHandler
 				}
 				if (queryParameters.get((Object)"export") != null) {
 					String ext = (String)queryParameters.get((Object)"export");
-					this.ext = ext.equals("xls") || ext.equals("xlsx") ? "xls" : "pdf";
+					this.ext = this.getExt(ext);
 				}
 			}
+
+			if (event.get("body") != null) {
+				this.postBody = (JSONObject)parser.parse((String)event.get("body"));
+				if (this.postBody.get("template") != null) {
+					this.template = (String)this.postBody.get("template");
+				}
+				if (this.postBody.get("export") != null) {
+					String ext = (String)this.postBody.get("export");
+					this.ext = this.getExt(ext);
+				}
+			}
+			
 			if (!this.template.contains(".jrxml")){
 				this.template = this.template + ".jrxml";
 			}
@@ -85,6 +95,10 @@ public class LambdaFunctionHandler implements RequestStreamHandler
 			logger.log("Error extracting inputstream.");
 			throw e;
 		}
+	}
+
+	private String getExt(String ext){
+		return ext.equals("excel") || ext.equals("xls") || ext.equals("xlsx") ? "xls" : "pdf";
 	}
 
 	@SuppressWarnings("unchecked")
