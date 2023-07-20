@@ -21,11 +21,12 @@ public class LambdaFunctionHandler implements RequestStreamHandler
 	LambdaLogger logger;
 	String template;
 	String ext;
+	String requestType;
 	JSONObject postBody;
 
 	public void handleRequest(InputStream inputStream, OutputStream outputStream, Context context) throws IOException {
 		this.logger = context.getLogger();
-		JSONObject responseJson = new JSONObject();
+		String response = new String();
 		try {
 			processInputStream(inputStream);
 			
@@ -35,20 +36,38 @@ public class LambdaFunctionHandler implements RequestStreamHandler
 			ReportGenerator reportGenerator = new ReportGenerator(this.logger, this.ext);
 			String encodedReport = reportGenerator.generateBase64EncodedReport(this.postBody);
 			
-			buildSuccessfulResponse(encodedReport, responseJson);
+			if(this.requestType.equals("LambdaProxy")){
+				JSONObject responseJson = new JSONObject();
+				buildSuccessfulResponse(encodedReport, responseJson);
+				response = responseJson.toString();
+			} else {
+				response = encodedReport;
+			}
 		}
 		catch (ParseException e) {
 			e.printStackTrace();
 			logger.log("Parse error when handling request." + e.getMessage());
-			this.buildErrorResponse(e.getMessage(), 400, responseJson);
+			if(this.requestType.equals("LambdaProxy")){
+				JSONObject responseJson = new JSONObject();
+				this.buildErrorResponse(e.getMessage(), 400, responseJson);
+				response = responseJson.toString();
+			} else {
+				throw new RuntimeException(e);
+			}
 		}
 		catch (Exception e) {
 			e.printStackTrace();
 			logger.log("Error when handling request." + e.getMessage());
-			this.buildErrorResponse(e.getMessage(), 500, responseJson);
+			if(this.requestType.equals("LambdaProxy")){
+				JSONObject responseJson = new JSONObject();
+				this.buildErrorResponse(e.getMessage(), 500, responseJson);
+				response = responseJson.toString();
+			} else {
+				throw new RuntimeException(e);
+			}
 		}
 		OutputStreamWriter writer = new OutputStreamWriter(outputStream, "UTF-8");
-		writer.write(responseJson.toString());
+		writer.write(response);
 		writer.close();
 	}
 
@@ -57,24 +76,36 @@ public class LambdaFunctionHandler implements RequestStreamHandler
 		BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
 		JSONObject queryParameters = null;
 		this.template = "template";
+		this.requestType = "LambdaProxy";
 		this.ext = "pdf";
 		this.postBody = null;
 		try {
 			JSONObject event = (JSONObject) parser.parse((Reader) reader);
 
-			if (event.get("queryStringParameters") != null) {
-				queryParameters = (JSONObject)event.get("queryStringParameters");
-				if (queryParameters.get((Object)"template") != null) {
-					this.template = (String)queryParameters.get((Object)"template");
+			//Request from API Gateway Proxy Integration
+			if (event.get("version") != null && event.get("version").equals("2.0")) {
+				this.requestType = "LambdaProxy";
+				if (event.get("queryStringParameters") != null) {
+					queryParameters = (JSONObject)event.get("queryStringParameters");
+					if (queryParameters.get((Object)"template") != null) {
+						this.template = (String)queryParameters.get((Object)"template");
+					}
+					if (queryParameters.get((Object)"export") != null) {
+						String ext = (String)queryParameters.get((Object)"export");
+						this.ext = this.getExt(ext);
+					}
 				}
-				if (queryParameters.get((Object)"export") != null) {
-					String ext = (String)queryParameters.get((Object)"export");
-					this.ext = this.getExt(ext);
+
+				if (event.get("body") != null) {
+					this.postBody = (JSONObject)parser.parse((String)event.get("body"));
 				}
+			//Direct Request
+			} else {
+				this.requestType = "Lambda";
+				this.postBody = event;
 			}
 
-			if (event.get("body") != null) {
-				this.postBody = (JSONObject)parser.parse((String)event.get("body"));
+			if(this.postBody != null){
 				if (this.postBody.get("template") != null) {
 					this.template = (String)this.postBody.get("template");
 				}
@@ -83,6 +114,7 @@ public class LambdaFunctionHandler implements RequestStreamHandler
 					this.ext = this.getExt(ext);
 				}
 			}
+
 			
 			if (!this.template.contains(".jrxml")){
 				this.template = this.template + ".jrxml";
