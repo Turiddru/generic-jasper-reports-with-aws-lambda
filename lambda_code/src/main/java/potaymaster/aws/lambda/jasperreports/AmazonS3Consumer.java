@@ -27,7 +27,7 @@ public class AmazonS3Consumer {
 		String bucket_name = System.getenv("BUCKET_NAME");
     	logger.log("Downloading file " + key_name + " from bucket " + bucket_name + "...\n");
 
-		Region region = Region.EU_SOUTH_1;
+		Region region = Region.of(System.getenv("REGION_NAME"));
         S3Client s3 = S3Client.builder()
                 .region(region)
                 .build();

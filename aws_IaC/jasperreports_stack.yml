@@ -244,6 +244,7 @@ Resources:
       Environment:
         Variables:
           BUCKET_NAME: !Ref TemplatesS3Location
+          REGION_NAME: 'eu-south-1'
       Role: !GetAtt jasperreportsLambdaRole.Arn
   apiPermissionGetJasper:
     Type: AWS::Lambda::Permission
