@@ -14,8 +14,10 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.TimeZone;
 
 import org.apache.commons.io.FileUtils;
 
@@ -32,6 +34,7 @@ import net.sf.jasperreports.engine.JasperExportManager;
 import net.sf.jasperreports.engine.JasperFillManager;
 import net.sf.jasperreports.engine.JasperPrint;
 import net.sf.jasperreports.engine.JasperReport;
+import net.sf.jasperreports.engine.JRParameter;
 import net.sf.jasperreports.engine.JRDataSource;
 import net.sf.jasperreports.engine.JREmptyDataSource;
 import net.sf.jasperreports.engine.data.JRMapCollectionDataSource;
@@ -50,6 +53,9 @@ public class ReportGenerator {
 
 	private LambdaLogger logger;
 	private String ext = "pdf";
+	private final String DEFAULT_REPORT_LOCALE_LANGUAGE = "it";
+	private final String DEFAULT_REPORT_LOCALE_COUNTRY = "IT";
+	private final String DEFAULT_REPORT_TIME_ZONE ="Europe/Rome";
 
 	public ReportGenerator(LambdaLogger logger, String reportExt) {
 		this.logger = logger;
@@ -78,8 +84,17 @@ public class ReportGenerator {
 		JasperReport jasperDesign = JasperCompileManager.compileReport(fileName);
 		try {
 			Map<String, Object> parameters = new HashMap<String, Object>();
-						
+			
+			String language = System.getenv("REPORT_LOCALE_LANGUAGE")!=null?System.getenv("REPORT_LOCALE_LANGUAGE"):DEFAULT_REPORT_LOCALE_LANGUAGE;
+			String country = System.getenv("REPORT_LOCALE_COUNTRY")!=null?System.getenv("REPORT_LOCALE_COUNTRY"):DEFAULT_REPORT_LOCALE_COUNTRY;
+			String timezoneStr = System.getenv("REPORT_TIME_ZONE")!=null?System.getenv("REPORT_TIME_ZONE"):DEFAULT_REPORT_TIME_ZONE;
+			
+
 			JSONArray dataSource = processPostBody(postBody, parameters);
+			Locale locale = new Locale( language, country );
+			TimeZone timezone = TimeZone.getTimeZone(timezoneStr);
+			parameters.put( JRParameter.REPORT_LOCALE, locale );
+			parameters.put( JRParameter.REPORT_TIME_ZONE, timezone );
 			JRDataSource jrDataSource = null;
 
 			if(dataSource!=null){

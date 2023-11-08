@@ -81,7 +81,7 @@ public class LambdaFunctionHandler implements RequestStreamHandler
 		this.postBody = null;
 		try {
 			JSONObject event = (JSONObject) parser.parse((Reader) reader);
-
+			logger.log("Received event: " + event.toString());
 			//Request from API Gateway Proxy Integration
 			if (event.get("version") != null && event.get("version").equals("2.0")) {
 				this.requestType = "LambdaProxy";
